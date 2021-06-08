@@ -6,6 +6,7 @@ export interface PaginateQuery {
     limit?: number
     sortBy?: [string, string][]
     search?: string
+    filter?: string
     path: string
 }
 
@@ -28,11 +29,13 @@ export const Paginate = createParamDecorator(
             }
         }
 
+
         return {
             page: query.page ? parseInt(query.page.toString(), 10) : undefined,
             limit: query.limit ? parseInt(query.limit.toString(), 10) : undefined,
             sortBy: sortBy.length ? sortBy : undefined,
             search: query.search ? query.search.toString() : undefined,
+            filter: query.filter ? query.filter.toString() : undefined,
             path,
         }
     }

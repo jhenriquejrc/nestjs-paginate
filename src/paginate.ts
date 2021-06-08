@@ -1,4 +1,4 @@
-import { Repository, FindConditions, SelectQueryBuilder, Like, ObjectLiteral } from 'typeorm'
+import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral } from 'typeorm'
 import { PaginateQuery } from './decorator'
 import { ServiceUnavailableException } from '@nestjs/common'
 
@@ -94,14 +94,25 @@ export async function paginate<T>(
         }
     }
 
-    ;[items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).getManyAndCount()
+    if (query.filter) {
+        const { filter } = query;
+
+        const extractFilter = filter.match(/\w+\(\w+\,?(\ |)\w+\)/g)
+        const filterOp = extractFilter.map(f => f.match(/\w+|\d/g)).map(op => {
+            const Operation = getOperator(op[0])
+
+            const value = tryParseBoolean(op[2]) || op[2]
+            where.push({ [op[1]]: Operation(value) })
+        })
+    }
+
+    [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).getManyAndCount()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
 
-    const options = `&limit=${limit}${sortBy.map((order) => `&sortBy=${order.join(':')}`).join('')}${
-        search ? `&search=${search}` : ''
-    }`
+    const options = `&limit=${limit}${sortBy.map((order) => `&sortBy=${order.join(':')}`).join('')}${search ? `&search=${search}` : ''
+        } ${query.filter ? `filter=${query.filter}` : ''}`
 
     const buildLink = (p: number): string => path + '?page=' + p + options
 
@@ -125,4 +136,31 @@ export async function paginate<T>(
     }
 
     return Object.assign(new Paginated<T>(), results)
+}
+
+const getOperator = (operator: string) => {
+    switch (operator) {
+        case 'eq':
+            return Equal;
+        case 'like':
+            return Like;
+        default:
+            return Equal;
+    }
+}
+
+const tryParseBoolean = (string) => {
+    var bool;
+    bool = (function () {
+        switch (false) {
+            case string.toLowerCase() !== 'true':
+                return true;
+            case string.toLowerCase() !== 'false':
+                return false;
+        }
+    })();
+    if (typeof bool === "boolean") {
+        return bool;
+    }
+    return undefined;
 }
