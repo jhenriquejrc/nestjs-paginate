@@ -1,4 +1,4 @@
-import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral } from 'typeorm'
+import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets } from 'typeorm'
 import { PaginateQuery } from './decorator'
 import { ServiceUnavailableException } from '@nestjs/common'
 
@@ -94,19 +94,24 @@ export async function paginate<T>(
         }
     }
 
+    let filters: Brackets;
     if (query.filter) {
         const { filter } = query;
+        filters = new Brackets(qb => {
+            const extractFilter = filter.match(/\w+\(\w+\,?(\ |)\w+\)/g)
+            return extractFilter.map(f => f.match(/\w+|\d/g)).map(op => {
+                const Operation = getOperator(op[0])
 
-        const extractFilter = filter.match(/\w+\(\w+\,?(\ |)\w+\)/g)
-        const filterOp = extractFilter.map(f => f.match(/\w+|\d/g)).map(op => {
-            const Operation = getOperator(op[0])
-
-            const value = tryParseBoolean(op[2]) || op[2]
-            where.push({ [op[1]]: Operation(value) })
+                const value = tryParseBoolean(op[2]) || op[2]
+                const filterObj: ObjectLiteral = [({ [op[1]]: Operation(value) })]
+                return qb.andWhere(new Brackets(qb => qb.where(filterObj)))
+            })
         })
     }
 
-    [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).getManyAndCount()
+    [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getManyAndCount()
+
+    const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getQuery()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
