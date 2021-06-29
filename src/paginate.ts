@@ -26,7 +26,7 @@ export class Paginated<T> {
 }
 
 export interface PaginateConfig<T> {
-    sortableColumns: Column<T>[]
+    sortableColumns?: Column<T>[]
     searchableColumns?: Column<T>[]
     maxLimit?: number
     defaultSortBy?: SortBy<T>
@@ -46,23 +46,24 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-    function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
-        return !!sortableColumns.find((c) => c === column)
-    }
+    // function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
+    //     return !!sortableColumns.find((c) => c === column)
+    // }
 
-    const { sortableColumns } = config
-    if (config.sortableColumns.length < 1) throw new ServiceUnavailableException()
+    // const { sortableColumns } = config
+    // if (config.sortableColumns.length < 1) throw new ServiceUnavailableException()
 
-    if (query.sortBy) {
-        for (const order of query.sortBy) {
-            if (isEntityKey(sortableColumns, order[0]) && ['ASC', 'DESC'].includes(order[1])) {
-                sortBy.push(order as Order<T>)
-            }
-        }
-    }
-    if (!sortBy.length) {
-        sortBy.push(...(config.defaultSortBy || [[sortableColumns[0], 'ASC']]))
-    }
+    // if (query.sortBy) {
+    //     for (const order of query.sortBy) {
+    //         if (isEntityKey(sortableColumns, order[0]) && ['ASC', 'DESC'].includes(order[1])) {
+    //             sortBy.push(order as Order<T>)
+    //         }
+    //     }
+    // }
+
+    // if (!sortBy.length) {
+    //     sortBy.push(...(config.defaultSortBy || [[sortableColumns[0], 'ASC']]))
+    // }
 
     if (page < 1) page = 1
 
@@ -111,7 +112,7 @@ export async function paginate<T>(
 
     [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getManyAndCount()
 
-    const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getQuery()
+    // const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getQuery()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
