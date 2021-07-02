@@ -1,4 +1,4 @@
-import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets } from 'typeorm'
+import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets, In } from 'typeorm'
 import { PaginateQuery } from './decorator'
 import { ServiceUnavailableException } from '@nestjs/common'
 
@@ -98,21 +98,25 @@ export async function paginate<T>(
     let filters: Brackets;
     if (query.filter) {
         const { filter } = query;
-        filters = new Brackets(qb => {
-            const extractFilter = filter.match(/\w+\(\w+\,?(\ |)\w+\)/g)
-            return extractFilter.map(f => f.match(/\w+|\d/g)).map(op => {
+        filters =  new Brackets(qb => {
+            const extractFilter = filter.match(/\w+\(\w+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
+           
+            return extractFilter.map(f => f.match(/([a-zA-Z0-9\-'])+/g)).map(op => {
                 const Operation = getOperator(op[0])
-
-                const value = tryParseBoolean(op[2]) || op[2]
-                const filterObj: ObjectLiteral = [({ [op[1]]: Operation(value) })]
+                const value = tryParseBoolean(op[2]) || op[2] || []
+                const filterObj: ObjectLiteral = { [op[1]]: Operation(value) }
                 return qb.andWhere(new Brackets(qb => qb.where(filterObj)))
             })
         })
     }
 
+  //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
+    
+    if (filters)
     [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getManyAndCount()
+    else
+        [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).getManyAndCount()
 
-    // const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getQuery()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
@@ -150,6 +154,8 @@ const getOperator = (operator: string) => {
             return Equal;
         case 'like':
             return Like;
+        case 'in':
+            return In;
         default:
             return Equal;
     }
