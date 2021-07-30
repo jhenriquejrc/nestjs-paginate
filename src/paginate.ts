@@ -1,4 +1,4 @@
-import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets, In } from 'typeorm'
+import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets, In, ILike } from 'typeorm'
 import { PaginateQuery } from './decorator'
 import { ServiceUnavailableException } from '@nestjs/common'
 
@@ -46,20 +46,20 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-    // function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
-    //     return !!sortableColumns.find((c) => c === column)
-    // }
+    function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
+        return !!sortableColumns.find((c) => c === column)
+    }
 
     // const { sortableColumns } = config
     // if (config.sortableColumns.length < 1) throw new ServiceUnavailableException()
 
-    // if (query.sortBy) {
-    //     for (const order of query.sortBy) {
-    //         if (isEntityKey(sortableColumns, order[0]) && ['ASC', 'DESC'].includes(order[1])) {
-    //             sortBy.push(order as Order<T>)
-    //         }
-    //     }
-    // }
+    if (query.sortBy) {
+        for (const order of query.sortBy) {
+            if (['ASC', 'DESC'].includes(order[1])) {
+                sortBy.push(order as Order<T>)
+            }
+        }
+    }
 
     // if (!sortBy.length) {
     //     sortBy.push(...(config.defaultSortBy || [[sortableColumns[0], 'ASC']]))
@@ -89,9 +89,10 @@ export async function paginate<T>(
     }
 
     const where: ObjectLiteral[] = []
-    if (search && config.searchableColumns) {
-        for (const column of config.searchableColumns) {
-            where.push({ [column]: Like(`%${search}%`), ...config.where })
+    if (search) {
+        const searchParam = search.split(",").map(q => q.split(':'))
+        for (const column of searchParam) {
+            where.push({ [column[0]]: ILike(`%${column[1]}%`), ...config.where })
         }
     }
 
