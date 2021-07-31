@@ -46,9 +46,9 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-    function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
-        return !!sortableColumns.find((c) => c === column)
-    }
+    // function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
+    //     return !!sortableColumns.find((c) => c === column)
+    // }
 
     // const { sortableColumns } = config
     // if (config.sortableColumns.length < 1) throw new ServiceUnavailableException()
@@ -88,12 +88,29 @@ export async function paginate<T>(
         }
     }
 
-    const where: ObjectLiteral[] = []
+    // const where: ObjectLiteral[] = []
+    // if (search) {
+    //     const searchParam = search.split(",").map(q => q.split(':'))
+    //     for (const column of searchParam) {
+    //         where.push({ [column[0]]: ILike(`%${column[1]}%`), ...config.where })
+    //     }
+    // }
+
+    let where: Brackets;
     if (search) {
-        const searchParam = search.split(",").map(q => q.split(':'))
-        for (const column of searchParam) {
-            where.push({ [column[0]]: ILike(`%${column[1]}%`), ...config.where })
-        }
+        const { filter } = query;
+        where =  new Brackets(qb => {
+            const searchParam = search.split(",").map(q => q.split(':'))
+           
+            return searchParam.map(op => {
+                const alias = op[0].split('.')
+                if(alias.length > 0) {
+                    return qb.orWhere(new Brackets(qb => qb.where(`${op[0]} ILike :${alias[1]}`, {[alias[1]]: op[1] !== '' ? `%${op[1]}%`: ''})))
+                }
+              
+                return qb.orWhere(new Brackets(qb => qb.where({[op[0]]: op[1] !== '' ? `%${op[1]}%`: ''})))
+            })
+        })
     }
 
     let filters: Brackets;
@@ -114,9 +131,9 @@ export async function paginate<T>(
   //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
     
     if (filters)
-    [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getManyAndCount()
+    [items, totalItems] = await queryBuilder.where(where || {}).andWhere(filters).getManyAndCount()
     else
-        [items, totalItems] = await queryBuilder.where(where.length ? where : config.where || {}).getManyAndCount()
+        [items, totalItems] = await queryBuilder.where(where || {}).getManyAndCount()
 
 
     let totalPages = totalItems / limit
