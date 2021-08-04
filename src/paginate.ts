@@ -96,19 +96,19 @@ export async function paginate<T>(
     //     }
     // }
 
-    let where: Brackets;
+    let searchQuery: Brackets;
     if (search) {
         const { filter } = query;
-        where =  new Brackets(qb => {
+        searchQuery = new Brackets(qb => {
             const searchParam = search.split(",").map(q => q.split(':'))
-           
+
             return searchParam.map(op => {
                 const alias = op[0].split('.')
-                if(alias.length > 0) {
-                    return qb.orWhere(new Brackets(qb => qb.where(`${op[0]} ILike :${alias[1]}`, {[alias[1]]: op[1] !== '' ? `%${op[1]}%`: ''})))
+                if (alias.length > 0) {
+                    return qb.orWhere(new Brackets(qb => qb.where(`${op[0]} ILike :${alias[1]}`, { [alias[1]]: op[1] !== '' ? `%${op[1]}%` : '' })))
                 }
-              
-                return qb.orWhere(new Brackets(qb => qb.where({[op[0]]: op[1] !== '' ? `%${op[1]}%`: ''})))
+
+                return qb.orWhere(new Brackets(qb => qb.where({ [op[0]]: op[1] !== '' ? `%${op[1]}%` : '' })))
             })
         })
     }
@@ -116,9 +116,9 @@ export async function paginate<T>(
     let filters: Brackets;
     if (query.filter) {
         const { filter } = query;
-        filters =  new Brackets(qb => {
+        filters = new Brackets(qb => {
             const extractFilter = filter.match(/\w+\(\w+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
-           
+
             return extractFilter.map(f => f.match(/([a-zA-Z0-9\-'])+/g)).map(op => {
                 const Operation = getOperator(op[0])
                 const value = tryParseBoolean(op[2]) || op[2] || []
@@ -128,13 +128,12 @@ export async function paginate<T>(
         })
     }
 
-  //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
-    
-    if (filters)
-    [items, totalItems] = await queryBuilder.where(where || {}).andWhere(filters).getManyAndCount()
-    else
-        [items, totalItems] = await queryBuilder.where(where || {}).getManyAndCount()
+    //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
 
+    if (filters)
+        [items, totalItems] = await queryBuilder.where(searchQuery || config.where).andWhere(filters).getManyAndCount()
+    else
+        [items, totalItems] = await queryBuilder.where(searchQuery || config.where).getManyAndCount()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
