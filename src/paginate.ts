@@ -117,7 +117,7 @@ export async function paginate<T>(
     if (query.filter) {
         const { filter } = query;
         filters = new Brackets(qb => {
-            const extractFilter = filter.match(/\w+\(\w+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
+            const extractFilter = filter.match(/\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
 
             return extractFilter.map(f => f.match(/([a-zA-Z0-9\-'])+/g)).map(op => {
                 const Operation = getOperator(op[0])
@@ -132,6 +132,8 @@ export async function paginate<T>(
 
     if (filters)
         [items, totalItems] = await queryBuilder.where(searchQuery || config.where).andWhere(filters).getManyAndCount()
+    else if (searchQuery)
+        [items, totalItems] = await queryBuilder.where(config.where).andWhere(searchQuery).getManyAndCount()
     else
         [items, totalItems] = await queryBuilder.where(searchQuery || config.where).getManyAndCount()
 
