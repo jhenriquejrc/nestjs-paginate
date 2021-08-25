@@ -1,4 +1,14 @@
-import { Repository, FindConditions, SelectQueryBuilder, Like, Equal, ObjectLiteral, Brackets, In, ILike } from 'typeorm'
+import {
+    Repository,
+    FindConditions,
+    SelectQueryBuilder,
+    Like,
+    Equal,
+    ObjectLiteral,
+    Brackets,
+    In,
+    ILike,
+} from 'typeorm'
 import { PaginateQuery } from './decorator'
 import { ServiceUnavailableException } from '@nestjs/common'
 
@@ -41,7 +51,7 @@ export async function paginate<T>(
     config: PaginateConfig<T>
 ): Promise<Paginated<T>> {
     let page = query.page || 1
-    const limit = Math.min(query.limit || config.defaultLimit || 20, config.maxLimit || 100);
+    const limit = Math.min(query.limit || config.defaultLimit || 20, config.maxLimit || 100)
     const sortBy = [] as SortBy<T>
     const search = query.search
     const path = query.path
@@ -96,52 +106,73 @@ export async function paginate<T>(
     //     }
     // }
 
-    let searchQuery: Brackets;
+    let searchQuery: Brackets
     if (search) {
-        const { filter } = query;
-        searchQuery = new Brackets(qb => {
-            const searchParam = search.split(",").map(q => q.split(':'))
+        const { filter } = query
+        searchQuery = new Brackets((qb) => {
+            const searchParam = search.split(',').map((q) => q.split(':'))
 
-            return searchParam.map(op => {
+            return searchParam.map((op) => {
                 const alias = op[0].split('.')
                 if (alias.length > 0) {
-                    return qb.orWhere(new Brackets(qb => qb.where(`${op[0]} ILike :${alias[1]}`, { [alias[1]]: op[1] !== '' ? `%${op[1]}%` : '' })))
+                    return qb.orWhere(
+                        new Brackets((qb) => {
+                            const searchValue = isNaN(Number(op[1])) ? `%${op[1]}%` : op[1]
+                            return qb.where(`${op[0]} ILike :${alias[1]}`, {
+                                [alias[1]]: op[1] !== '' ? searchValue : '',
+                            })
+                        })
+                    )
                 }
 
-                return qb.orWhere(new Brackets(qb => qb.where({ [op[0]]: op[1] !== '' ? `%${op[1]}%` : '' })))
+                return qb.orWhere(new Brackets((qb) => qb.where({ [op[0]]: op[1] !== '' ? `%${op[1]}%` : '' })))
             })
         })
     }
 
-    let filters: Brackets;
+    let filters: Brackets
     if (query.filter) {
-        const { filter } = query;
-        filters = new Brackets(qb => {
+        const { filter } = query
+        filters = new Brackets((qb) => {
             const extractFilter = filter.match(/\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
 
-            return extractFilter.map(f => f.match(/([a-zA-Z0-9\-'])+/g)).map(op => {
-                const Operation = getOperator(op[0])
-                const value = tryParseBoolean(op[2]) || op[2] || []
-                const filterObj: ObjectLiteral = { [op[1]]: Operation(value) }
-                return qb.andWhere(new Brackets(qb => qb.where(filterObj)))
-            })
+            return extractFilter
+                .map((f) => f.match(/([a-zA-Z0-9\-'])+/g))
+                .map((op) => {
+                    const Operation = getOperator(op[0])
+                    const value = tryParseBoolean(op[2]) || op[2] || []
+                    const filterObj: ObjectLiteral = { [op[1]]: Operation(value) }
+                    return qb.andWhere(new Brackets((qb) => qb.where(filterObj)))
+                })
         })
     }
 
     //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
 
-    if (filters)
-        [items, totalItems] = await queryBuilder.where(searchQuery || config.where).andWhere(filters).getManyAndCount()
+    if (filters && searchQuery)
+        [items, totalItems] = await queryBuilder
+            .where(config.where || {})
+            .andWhere(searchQuery)
+            .andWhere(filters)
+            .getManyAndCount()
     else if (searchQuery)
-        [items, totalItems] = await queryBuilder.where(config.where).andWhere(searchQuery).getManyAndCount()
-    else
-        [items, totalItems] = await queryBuilder.where(searchQuery || config.where).getManyAndCount()
+        [items, totalItems] = await queryBuilder
+            .where(config.where || {})
+            .andWhere(searchQuery)
+            .getManyAndCount()
+    else if (filters)
+        [items, totalItems] = await queryBuilder
+            .where(config.where || {})
+            .andWhere(filters)
+            .getManyAndCount()
+    else [items, totalItems] = await queryBuilder.where(config.where || {}).getManyAndCount()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
 
-    const options = `&limit=${limit}${sortBy.map((order) => `&sortBy=${order.join(':')}`).join('')}${search ? `&search=${search}` : ''
-        } ${query.filter ? `filter=${query.filter}` : ''}`
+    const options = `&limit=${limit}${sortBy.map((order) => `&sortBy=${order.join(':')}`).join('')}${
+        search ? `&search=${search}` : ''
+    } ${query.filter ? `filter=${query.filter}` : ''}`
 
     const buildLink = (p: number): string => path + '?page=' + p + options
 
@@ -170,28 +201,28 @@ export async function paginate<T>(
 const getOperator = (operator: string) => {
     switch (operator) {
         case 'eq':
-            return Equal;
+            return Equal
         case 'like':
-            return Like;
+            return Like
         case 'in':
-            return In;
+            return In
         default:
-            return Equal;
+            return Equal
     }
 }
 
 const tryParseBoolean = (string) => {
-    var bool;
+    var bool
     bool = (function () {
         switch (false) {
             case string.toLowerCase() !== 'true':
-                return true;
+                return true
             case string.toLowerCase() !== 'false':
-                return false;
+                return false
         }
-    })();
-    if (typeof bool === "boolean") {
-        return bool;
+    })()
+    if (typeof bool === 'boolean') {
+        return bool
     }
-    return undefined;
+    return undefined
 }
