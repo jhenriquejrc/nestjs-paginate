@@ -10,7 +10,6 @@ import {
     ILike,
 } from 'typeorm'
 import { PaginateQuery } from './decorator'
-import { ServiceUnavailableException } from '@nestjs/common'
 
 type Column<T> = Extract<keyof T, string>
 type Order<T> = [Column<T>, 'ASC' | 'DESC']
@@ -56,9 +55,12 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-    // function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
-    //     return !!sortableColumns.find((c) => c === column)
-    // }
+    function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
+
+         sortableColumns.map((c) => console.log("TYPE", typeof c))
+
+        return !!sortableColumns.map((c) => c === column)
+    }
 
     // const { sortableColumns } = config
     // if (config.sortableColumns.length < 1) throw new ServiceUnavailableException()
@@ -105,29 +107,42 @@ export async function paginate<T>(
     //         where.push({ [column[0]]: ILike(`%${column[1]}%`), ...config.where })
     //     }
     // }
+    if (config.where) {
+        queryBuilder.where(config.where)
+    }
 
     let searchQuery: Brackets
     if (search) {
-        const { filter } = query
+
+        const obj: T = await queryBuilder.getRawOne()
+
         searchQuery = new Brackets((qb) => {
             const searchParam = search.split(',').map((q) => q.split(':'))
+            return searchParam.map(async (op, idx) => {
 
-            return searchParam.map((op) => {
-                const alias = op[0].split('.')
-                if (alias.length > 0) {
+                const paramKey =  op[0].replace(/\./g, '_').replace(/\"/g, '')
+                const searchValue = `%${op[1]}%`
+                const searchKey =  typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
+
                     return qb.orWhere(
                         new Brackets((qb) => {
-                            const searchValue = isNaN(Number(op[1])) ? `%${op[1]}%` : op[1]
-                            return qb.where(`${op[0]} ILike :${alias[1]}`, {
-                                [alias[1]]: op[1] !== '' ? searchValue : '',
+                            // isEntityKey(["code", ], qb[0])
+
+
+                            return qb.where(`${searchKey} ILike :${paramKey}`, {
+                                [paramKey]: searchValue !== '' ? searchValue : '',
                             })
                         })
                     )
-                }
 
-                return qb.orWhere(new Brackets((qb) => qb.where({ [op[0]]: op[1] !== '' ? `%${op[1]}%` : '' })))
+
+
+
+               // return qb.orWhere(new Brackets((qb) => qb.where(`${paramName} ILike :${paramName}`, parameter)))
             })
         })
+
+        queryBuilder.andWhere(searchQuery)
     }
 
     let filters: Brackets
@@ -145,27 +160,12 @@ export async function paginate<T>(
                     return qb.andWhere(new Brackets((qb) => qb.where(filterObj)))
                 })
         })
+        queryBuilder.andWhere(filters)
     }
 
     //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
 
-    if (filters && searchQuery)
-        [items, totalItems] = await queryBuilder
-            .where(config.where || {})
-            .andWhere(searchQuery)
-            .andWhere(filters)
-            .getManyAndCount()
-    else if (searchQuery)
-        [items, totalItems] = await queryBuilder
-            .where(config.where || {})
-            .andWhere(searchQuery)
-            .getManyAndCount()
-    else if (filters)
-        [items, totalItems] = await queryBuilder
-            .where(config.where || {})
-            .andWhere(filters)
-            .getManyAndCount()
-    else [items, totalItems] = await queryBuilder.where(config.where || {}).getManyAndCount()
+    ;[items, totalItems] = await queryBuilder.getManyAndCount()
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
