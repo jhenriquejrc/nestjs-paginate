@@ -147,15 +147,15 @@ export async function paginate<T>(
 
     let filters: Brackets
     if (query.filter) {
-        const { filter } = query
+        const  { filter }  = query
         filters = new Brackets((qb) => {
-            const extractFilter = filter.match(/\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9\-']*\)*/g)
+            const extractFilter = filter.match(/\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g)
 
             return extractFilter
-                .map((f) => f.match(/([a-zA-Z0-9\-'])+/g))
+                .map((f) => f.match(/([a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%'])+/g))
                 .map((op) => {
                     const Operation = getOperator(op[0])
-                    const value = tryParseBoolean(op[2]) || op[2] || []
+                    const value = tryParseBoolean(op[2]) || op[2].trim() || []
                     const filterObj: ObjectLiteral = { [op[1]]: Operation(value) }
                     return qb.andWhere(new Brackets((qb) => qb.where(filterObj)))
                 })
