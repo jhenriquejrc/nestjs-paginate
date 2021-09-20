@@ -120,6 +120,8 @@ export async function paginate<T>(
             const searchParam = search.split(',').map((q) => q.split(':'))
             return searchParam.map(async (op, idx) => {
 
+                if(op[1] === '')
+                return
                 const paramKey =  op[0].replace(/\./g, '_').replace(/\"/g, '')
                 const searchValue = `%${op[1]}%`
                 const searchKey =  typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
