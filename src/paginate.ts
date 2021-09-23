@@ -125,7 +125,7 @@ export async function paginate<T>(
                 return
                 const paramKey = op[0].split('.').length > 0 ? op[0].replace(/\./g, '_').replace(/\"/g, '') : `${alias}_${op[0]}`
                 const searchValue = `%${op[1]}%`
-                if(!obj[paramKey]) return
+                if(!obj.hasOwnProperty(paramKey)) return
                 const searchKey = typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
 
                     return qb.orWhere(
@@ -138,9 +138,6 @@ export async function paginate<T>(
                             })
                         })
                     )
-
-
-
 
                // return qb.orWhere(new Brackets((qb) => qb.where(`${paramName} ILike :${paramName}`, parameter)))
             })
