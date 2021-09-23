@@ -114,6 +114,7 @@ export async function paginate<T>(
     let searchQuery: Brackets
     if (search) {
 
+        const alias = await queryBuilder.alias
         const obj: T = await queryBuilder.getRawOne()
 
         searchQuery = new Brackets((qb) => {
@@ -122,9 +123,10 @@ export async function paginate<T>(
 
                 if(op[1] === '')
                 return
-                const paramKey =  op[0].replace(/\./g, '_').replace(/\"/g, '')
+                const paramKey = op[0].split('.').length > 0 ? op[0].replace(/\./g, '_').replace(/\"/g, '') : `${alias}_${op[0]}`
                 const searchValue = `%${op[1]}%`
-                const searchKey =  typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
+                if(!obj[paramKey]) return
+                const searchKey = typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
 
                     return qb.orWhere(
                         new Brackets((qb) => {
