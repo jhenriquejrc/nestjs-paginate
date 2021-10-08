@@ -55,11 +55,9 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-    console.log(`Search: ${search}`)
 
     function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
-
-         sortableColumns.map((c) => console.log("TYPE", typeof c))
+        sortableColumns.map((c) => console.log('TYPE', typeof c))
 
         return !!sortableColumns.map((c) => c === column)
     }
@@ -116,32 +114,32 @@ export async function paginate<T>(
     let searchQuery: Brackets
     if (search) {
 
+        console.log(`${Date.now().toLocaleString()} Search: ${search}`)
+
         const alias = await queryBuilder.alias
         const obj: T = await queryBuilder.getRawOne()
 
         searchQuery = new Brackets((qb) => {
             const searchParam = search.split(',').map((q) => q.split(':'))
             return searchParam.map(async (op, idx) => {
-
-                if(op[1] === '')
-                return
-                const paramKey = op[0].split('.').length > 0 ? op[0].replace(/\./g, '_').replace(/\"/g, '') : `${alias}_${op[0]}`
+                if ( op.length === 1 || op[1] === '') return
+                const paramKey =
+                    op[0].split('.').length > 0 ? op[0].replace(/\./g, '_').replace(/\"/g, '') : `${alias}_${op[0]}`
                 const searchValue = `%${op[1]}%`
-                if(!obj && !obj?.hasOwnProperty(paramKey)) return
+                if (!obj && !obj?.hasOwnProperty(paramKey)) return
                 const searchKey = typeof obj[paramKey] === 'number' ? `cast(${op[0]} as text)` : op[0]
 
-                    return qb.orWhere(
-                        new Brackets((qb) => {
-                            // isEntityKey(["code", ], qb[0])
+                return qb.orWhere(
+                    new Brackets((qb) => {
+                        // isEntityKey(["code", ], qb[0])
 
-
-                            return qb.where(`${searchKey} ILike :${paramKey}`, {
-                                [paramKey]: searchValue !== '' ? searchValue : '',
-                            })
+                        return qb.where(`${searchKey} ILike :${paramKey}`, {
+                            [paramKey]: searchValue !== '' ? searchValue : '',
                         })
-                    )
+                    })
+                )
 
-               // return qb.orWhere(new Brackets((qb) => qb.where(`${paramName} ILike :${paramName}`, parameter)))
+                // return qb.orWhere(new Brackets((qb) => qb.where(`${paramName} ILike :${paramName}`, parameter)))
             })
         })
 
@@ -150,9 +148,11 @@ export async function paginate<T>(
 
     let filters: Brackets
     if (query.filter) {
-        const  { filter }  = query
+        const { filter } = query
         filters = new Brackets((qb) => {
-            const extractFilter = filter.match(/\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g)
+            const extractFilter = filter.match(
+                /\w+\([a-zA-Z0-9"]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g
+            )
 
             return extractFilter
                 .map((f) => f.match(/([a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%'])+/g))
