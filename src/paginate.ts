@@ -55,7 +55,6 @@ export async function paginate<T>(
     const search = query.search
     const path = query.path
 
-
     function isEntityKey(sortableColumns: Column<T>[], column: string): column is Column<T> {
         sortableColumns.map((c) => console.log('TYPE', typeof c))
 
@@ -96,7 +95,9 @@ export async function paginate<T>(
         queryBuilder = repo.take(limit).skip((page - 1) * limit)
 
         for (const order of sortBy) {
-            queryBuilder.addOrderBy(repo.alias + '.' + order[0], order[1])
+            const column = order[0].split('.')
+            if (column.length > 1) queryBuilder.addOrderBy(order[0], order[1])
+            else queryBuilder.addOrderBy(repo.alias + '.' + order[0], order[1])
         }
     }
 
@@ -113,7 +114,6 @@ export async function paginate<T>(
 
     let searchQuery: Brackets
     if (search) {
-
         console.log(`${Date.now().toLocaleString()} Search: ${search}`)
 
         const alias = await queryBuilder.alias
@@ -122,7 +122,7 @@ export async function paginate<T>(
         searchQuery = new Brackets((qb) => {
             const searchParam = search.split(',').map((q) => q.split(':'))
             return searchParam.map(async (op, idx) => {
-                if ( op.length === 1 || op[1] === '') return
+                if (op.length === 1 || op[1] === '') return
                 const paramKey =
                     op[0].split('.').length > 0 ? op[0].replace(/\./g, '_').replace(/\"/g, '') : `${alias}_${op[0]}`
                 const searchValue = `%${op[1]}%`
