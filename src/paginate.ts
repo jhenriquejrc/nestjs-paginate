@@ -147,7 +147,6 @@ export async function paginate<T>(
     }
 
     let filters: Brackets
-    const obj: T = await queryBuilder.getRawOne()
 
     if (query.filter) {
         const { filter } = query
@@ -178,7 +177,15 @@ export async function paginate<T>(
 
     //  const queryLog = await queryBuilder.where(where.length ? where : config.where || {}).andWhere(filters).getParameters()
 
-    ;[items, totalItems] = await queryBuilder.getManyAndCount()
+    const hasDistinct = await queryBuilder.getSql().includes('DISTINCT')
+
+    if (!hasDistinct) {
+        ;[items, totalItems] = await queryBuilder.getManyAndCount()
+
+    } else {
+        items = await queryBuilder.getRawMany()
+        totalItems = items.length
+    }
 
     let totalPages = totalItems / limit
     if (totalItems % limit) totalPages = Math.ceil(totalPages)
