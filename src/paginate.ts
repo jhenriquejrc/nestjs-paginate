@@ -150,24 +150,25 @@ export async function paginate<T>(
 
     if (query.filter) {
         const { filter } = query
+        const alias = await queryBuilder.alias
         filters = new Brackets((qb) => {
             const extractFilter = filter.match(
-                /\w+\([a-zA-Z0-9\."]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g
+                /\w+\([a-zA-Z0-9\.\_"]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g
             )
 
             return extractFilter
-                .map((f) => f.match(/([a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\.\"\s\-\%'])+/g))
+                .map((f) => f.match(/([a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\.\"\s\-\_\%'])+/g))
                 .map((op) => {
                     const Operation = getOperator(op[0])
                     const value = tryParseBoolean(op[2]) || op[2].trim() || []
                     const filterAlias = op[1].split('.').map((field) => field.replace(/\"/g, '').trim())
 
-                    const filterObj: ObjectLiteral = { [op[1]]: Operation(value) }
+                    const filterObj: ObjectLiteral = { [``]: Operation(value) }
                     return qb.andWhere(
                         new Brackets((qb) =>
                             filterAlias.length > 1
                                 ? qb.where(`${op[1]} = :${filterAlias[1]}`, { [filterAlias[1]]: value })
-                                : qb.where(filterObj)
+                                : qb.where(`${alias}.${op[1]} = :${filterAlias[0]}`, { [filterAlias[0]]: value })
                         )
                     )
                 })
