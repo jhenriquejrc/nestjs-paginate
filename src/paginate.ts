@@ -1,6 +1,7 @@
 import {
     Repository,
     FindConditions,
+    FindOperator,
     SelectQueryBuilder,
     Like,
     Equal,
@@ -8,6 +9,12 @@ import {
     Brackets,
     In,
     ILike,
+    MoreThan,
+    MoreThanOrEqual,
+    IsNull,
+    LessThan,
+    LessThanOrEqual,
+    Not,
 } from 'typeorm'
 import { PaginateQuery } from './decorator'
 
@@ -150,7 +157,6 @@ export async function paginate<T>(
 
     if (query.filter) {
         const { filter } = query
-        const alias = await queryBuilder.alias
         filters = new Brackets((qb) => {
             const extractFilter = filter.match(
                 /\w+\([a-zA-Z0-9\.\_"]+\,?(\ |)[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\s\-\%\'\~]*\)*/g
@@ -159,16 +165,18 @@ export async function paginate<T>(
             return extractFilter
                 .map((f) => f.match(/([a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\.\"\s\-\_\%'])+/g))
                 .map((op) => {
-                    const Operation = getOperator(op[0])
+                    const Operation = getOperatorFn<FindOperator<T>>(op[0] as FilterOperator)
                     const value = tryParseBoolean(op[2]) || op[2].trim() || []
                     const filterAlias = op[1].split('.').map((field) => field.replace(/\"/g, '').trim())
 
-                    const filterObj: ObjectLiteral = { [``]: Operation(value) }
+                    const filterObj: ObjectLiteral = { [filterAlias[0]]: Operation(value) }
                     return qb.andWhere(
                         new Brackets((qb) =>
                             filterAlias.length > 1
-                                ? qb.where(`${op[1]} = :${filterAlias[1]}`, { [filterAlias[1]]: value })
-                                : qb.where(`${alias}.${op[1]} = :${filterAlias[0]}`, { [filterAlias[0]]: value })
+                                ? qb.where(`${op[1]} ${getFindOperatorSql(op[0] as FilterOperator, filterAlias[1])}`, {
+                                      [filterAlias[1]]: value,
+                                  })
+                                : qb.where(filterObj)
                         )
                     )
                 })
@@ -182,7 +190,6 @@ export async function paginate<T>(
 
     if (!hasDistinct) {
         ;[items, totalItems] = await queryBuilder.getManyAndCount()
-
     } else {
         items = await queryBuilder.getRawMany()
         totalItems = items.length
@@ -219,16 +226,56 @@ export async function paginate<T>(
     return Object.assign(new Paginated<T>(), results)
 }
 
-const getOperator = (operator: string) => {
-    switch (operator) {
-        case 'eq':
+export enum FilterOperator {
+    EQ = 'eq',
+    GT = 'gt',
+    GTE = 'gte',
+    IN = 'in',
+    NULL = 'null',
+    LT = 'lt',
+    LTE = 'lte',
+    NOT = 'not',
+}
+
+export function getOperatorFn<T>(op: FilterOperator): (...args: any[]) => FindOperator<T> {
+    switch (op) {
+        case FilterOperator.EQ:
             return Equal
-        case 'like':
-            return Like
-        case 'in':
+        case FilterOperator.GT:
+            return MoreThan
+        case FilterOperator.GTE:
+            return MoreThanOrEqual
+        case FilterOperator.IN:
             return In
-        default:
-            return Equal
+        case FilterOperator.NULL:
+            return IsNull
+        case FilterOperator.LT:
+            return LessThan
+        case FilterOperator.LTE:
+            return LessThanOrEqual
+        case FilterOperator.NOT:
+            return Not
+    }
+}
+
+export function getFindOperatorSql<T>(op: FilterOperator, property: string): string {
+    switch (op) {
+        case FilterOperator.EQ:
+            return `= :${property}`
+        case FilterOperator.GT:
+            return `> :${property}`
+        case FilterOperator.GTE:
+            return `>= :${property}`
+        case FilterOperator.IN:
+            return `In :${property}`
+        case FilterOperator.NULL:
+            return `Is Null`
+        case FilterOperator.LT:
+            return `< :${property}`
+        case FilterOperator.LTE:
+            return `<= :${property}`
+        case FilterOperator.NOT:
+            return `Not In :${property}`
     }
 }
 
